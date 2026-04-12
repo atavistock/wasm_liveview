@@ -1,6 +1,6 @@
 [package]
 name = "wasm_liveview"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2024"
 description = "Two-way bridge between wasm-bindgen Rust and a Phoenix LiveView: JS commands out, server-pushed events in."
 

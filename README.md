@@ -1,27 +1,24 @@
-# wasm_liveview
+# WASM-Liveview Bridge
 
 A two-way bridge between wasm-bindgen Rust and a mounted Phoenix LiveView.
-Outbound, it wraps the `Phoenix.LiveView.JS` command set so Rust/wasm code
-can fire LV events, navigate, dispatch DOM events, run transitions, and
-manage focus -- without trampolining through hidden `phx-*` trigger
-elements. Inbound, it lets Rust subscribe to server-pushed events from
-`Phoenix.LiveView.push_event/3`.
 
-Written for game code that renders in wasm but wants the server to own
-state, routing, and persistence.
+Outbound, it wraps the `Phoenix.LiveView.JS` command set so Rust/wasm code can fire LV events, navigate, dispatch DOM events, run transitions, and manage focus - without trampolining through hidden `phx-*` trigger elements.
+
+Inbound, it lets Rust subscribe to server-pushed events from `Phoenix.LiveView.push_event/3`.
+
+Written for game code that renders in wasm but wants the server to own authentication, state, and persistence.
 
 ## Status
 
-Early. The outbound side wraps the common `JS` commands. The inbound side
-covers server-pushed events via window `phx:<event>` listeners. Not yet
-implemented: client -> server `pushEvent` with a reply callback, which
-needs a LiveView hook on the JS side.
+Early. This was extracted from an existing game project, was backported into that project, and currently works as expected. The outbound side wraps the common `JS` commands. The inbound side covers server-pushed events via window `phx:<event>` listeners. Not yet implemented: client -> server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
 
 ## Install
 
+Until I get this into [crates.io](https://crates.io), you will need to pull it from the github repo
+
 ```toml
 [dependencies]
-wasm_liveview = { git = "https://github.com/your-user/wasm_liveview" }
+wasm_liveview = { git = "https://github.com/atavistock/wasm_liveview" }
 ```
 
 The crate only pulls in `wasm-bindgen` / `js-sys` / `web-sys` on the
