@@ -10,7 +10,7 @@ Written for game code that renders in wasm but wants the server to own authentic
 
 ## Status
 
-Early. This was extracted from an existing game project, was backported into that project, and currently works as expected. The outbound side wraps the common `JS` commands. The inbound side covers server-pushed events via window `phx:<event>` listeners. Not yet implemented: client -> server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
+Early. I built this within an existing WASM game project then I needed it in a second project. So it was extracted into its own crate, and used by both projects. It currently works as expected for both projects, so documentation was added for release. The outbound side wraps the common `JS` commands. The inbound side covers server-pushed events via window `phx:<event>` listeners. Not yet implemented: client -> server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
 
 ## Install
 
