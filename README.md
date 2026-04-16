@@ -1,4 +1,4 @@
-# WASM-Liveview Bridge
+# Wasm/LiveView Bridge
 
 A two-way bridge between wasm-bindgen Rust and a mounted Phoenix LiveView.
 
@@ -10,34 +10,37 @@ Written for game code that renders in wasm but wants the server to own authentic
 
 ## Status
 
-Early. I built this within an existing WASM game project then I needed it in a second project. So it was extracted into its own crate, and used by both projects. It currently works as expected for both projects, so documentation was added for release. The outbound side wraps the common `JS` commands. The inbound side covers server-pushed events via window `phx:<event>` listeners. Not yet implemented: client -> server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
+Early. I originally built this inside a wasm game project, then needed the same bridge in a second one, so I extracted it into a shared crate. Both projects use it today, and the docs were cleaned up ahead of a first release. The outbound side wraps the common `JS` commands. The inbound side covers server-pushed events via `window` `phx:<event>` listeners. Not yet implemented: client-to-server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
 
 ## Install
 
-Until I get this into [crates.io](https://crates.io), you will need to pull it from the github repo
+Until this lands on [crates.io](https://crates.io), pull it from GitHub:
 
 ```toml
 [dependencies]
 wasm_liveview = { git = "https://github.com/atavistock/wasm_liveview" }
 ```
 
-The crate only pulls in `wasm-bindgen` / `js-sys` / `web-sys` on the
-`wasm32` target. On non-wasm targets every call stubs to `Ok(())` so the
-command encoders can be unit-tested without a browser.
+The crate only pulls in `wasm-bindgen` / `js-sys` / `web-sys` on the `wasm32` target. On non-wasm targets every call stubs to `Ok(())` so the command encoders can be unit-tested without a browser.
 
 ## Sending commands to LiveView
 
-Every outbound function is a thin wrapper around one `Phoenix.LiveView.JS`
-command, ultimately dispatched via `window.liveSocket.execJS(rootEl, ...)`.
+Every outbound function is a thin wrapper around one `Phoenix.LiveView.JS` command, ultimately dispatched via `window.liveSocket.execJS(rootEl, ...)`.
 
 ```rust
 use wasm_liveview as lv;
 
-// Push an event to the root LiveView.
+// Push an event to the root LiveView (ad-hoc JSON).
 lv::push_event("submit_word", &serde_json::json!({
     "word": "TRY",
     "route": [0, 1, 2],
 }))?;
+
+// Or with a typed payload - no json! allocation, field names checked at compile time.
+#[derive(serde::Serialize)]
+struct Submit<'a> { word: &'a str, route: &'a [usize] }
+
+lv::push_event("submit_word", &Submit { word: "TRY", route: &[0, 1, 2] })?;
 
 // Push to a component by CID or selector.
 lv::push_event_to("#chat", "send", &payload)?;
@@ -70,15 +73,11 @@ lv::pop_focus()?;
 lv::exec_attr("data-show", Some("#modal"))?;
 ```
 
-All outbound calls are **fire-and-forget**. `execJS` returns no reply, so
-if you need the server's response you'll want the (not-yet-implemented)
-hook-backed channel.
+All outbound calls are **fire-and-forget**. `execJS` returns no reply, so if you need the server's response, use the hook-backed channel (not yet implemented).
 
 ## Receiving server-pushed events
 
-`Phoenix.LiveView.push_event/3` dispatches `phx:<event>` `CustomEvent`s on
-`window` whose `detail` is the payload. `subscribe` wraps that with typed
-decoding:
+`Phoenix.LiveView.push_event/3` dispatches `phx:<event>` `CustomEvent`s on `window` whose `detail` is the payload. `subscribe` turns that into a typed listener:
 
 ```rust
 use wasm_liveview as lv;
@@ -90,55 +89,14 @@ let sub = lv::subscribe::<Score, _>("score_update", |s| {
     web_sys::console::log_1(&format!("score is now {}", s.value).into());
 })?;
 
-// `sub` removes the listener when dropped. To listen for the lifetime of
-// the page:
+// `sub` removes the listener when dropped. To listen for the lifetime of the page:
 sub.forget();
 ```
 
-Deserialization failures are logged via `console.error` and the handler
-is skipped; malformed payloads will never panic your wasm module.
+Deserialization failures are logged via `console.error` and the handler is skipped. Malformed payloads will never panic your wasm module.
 
 ## How it works
 
-- **Outbound.** Each command is encoded as `[[op, args]]` JSON and passed
-  to `window.liveSocket.execJS(rootEl, commandJson)`. This is exactly the
-  format LiveView's own `phx-click={JS.push(...)}` attributes use, so the
-  server sees your events indistinguishably from clicks.
-- **Inbound.** Phoenix already broadcasts `push_event/3` payloads as
-  `phx:<event>` window `CustomEvent`s; `subscribe` just adds a typed
-  `addEventListener` and JSON-decodes `event.detail` into your `T`.
-- **Caching.** wasm32 is single-threaded and a page hosts a single
-  `liveSocket`, so `window`, `document`, `liveSocket`, and its `execJS`
-  function are cached in a `thread_local!` for the page's lifetime. The
-  `[data-phx-session]` root element is re-queried per call, since LV
-  navigation can swap it out.
-
-## Repository layout
-
-```
-src/
-  lib.rs              re-exports only
-  error.rs            Error enum
-  cache.rs            thread_local! for window/document/liveSocket/execJS
-  exec.rs             command wire format + execJS trampoline
-  subscribe/
-    mod.rs            Subscription type + cross-target API
-    wasm.rs           window "phx:*" listener with typed decode
-  commands/
-    push.rs           push_event / push_event_to
-    navigate.rs       navigate / patch
-    dispatch.rs       dispatch / dispatch_with
-    transition.rs     transition + TransitionClasses
-    focus.rs          focus / focus_first / push_focus / pop_focus
-    exec_attr.rs      exec_attr
-```
-
-## Testing
-
-```sh
-cargo test                            # host target; exercises encoders
-cargo check --target wasm32-unknown-unknown   # wasm target
-```
-
-Host tests construct the exact JSON wire format each command generates
-and assert on it. Actual `execJS` round-trips happen only on wasm.
+- **Outbound.** Each command is encoded as `[[op, args]]` JSON and passed to `window.liveSocket.execJS(rootEl, commandJson)`. This is exactly the format LiveView's own `phx-click={JS.push(...)}` attributes use, so the server sees your events indistinguishably from clicks.
+- **Inbound.** Phoenix already broadcasts `push_event/3` payloads as `phx:<event>` window `CustomEvent`s; `subscribe` just adds a typed `addEventListener` and JSON-decodes `event.detail` into your `T`.
+- **Caching.** wasm32 is single-threaded and a page hosts a single `liveSocket`, so `window`, `document`, `liveSocket`, and its `execJS` function are cached in a `thread_local!` for the page's lifetime. The `[data-phx-session]` root element is re-queried per call, because LV navigation can swap it out.
