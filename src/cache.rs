@@ -59,6 +59,15 @@ pub fn window() -> Result<web_sys::Window, Error> {
     })
 }
 
+/// Returns a clone of the cached `document` handle.
+pub fn document() -> Result<web_sys::Document, Error> {
+    HANDLES.with(|cell| {
+        let mut slot = cell.borrow_mut();
+        ensure_handles(&mut slot)?;
+        Ok(slot.as_ref().unwrap().document.clone())
+    })
+}
+
 /// Runs `callback` with references to the cached `execJS` function, the
 /// `liveSocket` it binds to as `this`, and the current LiveView root
 /// element (re-queried from the cached `document` each call).

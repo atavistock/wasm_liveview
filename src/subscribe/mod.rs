@@ -52,36 +52,52 @@ where
     subscribe_impl(event, handler)
 }
 
-/// Handle returned by [`subscribe`].
+/// RAII handle for a listener registered via [`subscribe`] or
+/// [`crate::Bridge::watch`].
 ///
-/// Dropping the handle removes the underlying `addEventListener` callback.
-/// Call [`Subscription::forget`] to keep the listener alive for the rest of
-/// the page's lifetime (the usual choice for permanent subscriptions set up
-/// at startup).
+/// Dropping the handle removes the underlying listener. Call
+/// [`Subscription::forget`] to keep the listener alive for the rest of the
+/// page's lifetime (the usual choice for permanent subscriptions set up at
+/// startup).
 pub struct Subscription {
     #[cfg(target_arch = "wasm32")]
-    inner: Option<wasm::Inner>,
+    inner: Option<Box<dyn Teardown>>,
 }
 
+/// Internal trait implemented by each listener kind (event-listener,
+/// MutationObserver, etc.) so [`Subscription`] can own them uniformly.
 #[cfg(target_arch = "wasm32")]
+pub(crate) trait Teardown {
+    fn remove(self: Box<Self>);
+    fn forget(self: Box<Self>);
+}
+
 impl Subscription {
     /// Consumes the handle, leaking the listener so it lives for the rest
     /// of the page's lifetime.
     ///
-    /// After calling `forget`, the handler can no longer be removed. Use
+    /// After calling `forget`, the listener can no longer be removed. Use
     /// this for subscriptions that should persist across LiveView
     /// navigations and live as long as the page is loaded.
-    pub fn forget(mut self) {
-        if let Some(inner) = self.inner.take() {
-            inner.forget();
+    pub fn forget(self) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut this = self;
+            if let Some(inner) = this.inner.take() {
+                inner.forget();
+            }
         }
     }
-}
 
-#[cfg(not(target_arch = "wasm32"))]
-impl Subscription {
-    /// No-op on non-wasm targets. See the wasm implementation for behavior.
-    pub fn forget(self) {}
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn from_inner(inner: Box<dyn Teardown>) -> Self {
+        Self { inner: Some(inner) }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn inert() -> Self {
+        Self {}
+    }
 }
 
 impl Drop for Subscription {
@@ -99,7 +115,7 @@ where
     Event: DeserializeOwned + 'static,
     Handler: Fn(Event) + 'static,
 {
-    wasm::subscribe(event, handler).map(|inner| Subscription { inner: Some(inner) })
+    wasm::subscribe(event, handler).map(|inner| Subscription::from_inner(Box::new(inner)))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -108,7 +124,7 @@ where
     Event: DeserializeOwned + 'static,
     Handler: Fn(Event) + 'static,
 {
-    Ok(Subscription {})
+    Ok(Subscription::inert())
 }
 
 #[cfg(test)]

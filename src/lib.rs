@@ -20,6 +20,7 @@
 //! | Focus       | [`focus`], [`focus_first`], [`push_focus`], [`pop_focus`]          |
 //! | JS attrs    | [`exec_attr`]                                                      |
 //! | Events down | [`subscribe`] returning [`Subscription`]                           |
+//! | State reads | [`Bridge`] for typed `data-*` reads and `MutationObserver` watches |
 //!
 //! # Payload types
 //!
@@ -91,6 +92,7 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+mod bridge;
 #[cfg(target_arch = "wasm32")]
 mod cache;
 mod commands;
@@ -98,6 +100,7 @@ mod error;
 mod exec;
 mod subscribe;
 
+pub use bridge::Bridge;
 pub use commands::dispatch::{dispatch, dispatch_with};
 pub use commands::exec_attr::exec_attr;
 pub use commands::focus::{focus, focus_first, pop_focus, push_focus};

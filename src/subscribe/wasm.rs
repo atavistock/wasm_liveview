@@ -17,8 +17,8 @@ pub(super) struct Inner {
     callback: Closure<dyn Fn(web_sys::CustomEvent)>,
 }
 
-impl Inner {
-    pub(super) fn remove(self) {
+impl super::Teardown for Inner {
+    fn remove(self: Box<Self>) {
         if let Some(window) = web_sys::window() {
             let _ = window.remove_event_listener_with_callback(
                 &self.event_name,
@@ -27,7 +27,7 @@ impl Inner {
         }
     }
 
-    pub(super) fn forget(self) {
+    fn forget(self: Box<Self>) {
         self.callback.forget();
     }
 }
