@@ -8,20 +8,7 @@
 //!
 //! Written for game code that renders in wasm but wants the server to own
 //! state, routing, and persistence.
-//!
-//! # Feature summary
-//!
-//! | Area        | Functions                                                          |
-//! |-------------|--------------------------------------------------------------------|
-//! | Events up   | [`push_event`], [`push_event_to`]                                  |
-//! | Routing     | [`navigate`], [`patch`]                                            |
-//! | DOM events  | [`dispatch`], [`dispatch_with`]                                    |
-//! | Transitions | [`transition`] + [`TransitionClasses`]                             |
-//! | Focus       | [`focus`], [`focus_first`], [`push_focus`], [`pop_focus`]          |
-//! | JS attrs    | [`exec_attr`]                                                      |
-//! | Events down | [`subscribe`] returning [`Subscription`]                           |
-//! | State reads | [`Bridge`] for typed `data-*` reads and `MutationObserver` watches |
-//!
+//
 //! # Payload types
 //!
 //! Commands that carry a payload ([`push_event`], [`push_event_to`],
@@ -106,6 +93,6 @@ pub use commands::exec_attr::exec_attr;
 pub use commands::focus::{focus, focus_first, pop_focus, push_focus};
 pub use commands::navigate::{navigate, patch};
 pub use commands::push::{push_event, push_event_to};
-pub use commands::transition::{transition, TransitionClasses};
+pub use commands::transition::{TransitionClasses, transition};
 pub use error::Error;
-pub use subscribe::{subscribe, Subscription};
+pub use subscribe::{Subscription, subscribe};
