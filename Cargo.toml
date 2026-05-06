@@ -4,6 +4,9 @@ version = "0.3.0"
 edition = "2024"
 description = "Two-way bridge between wasm-bindgen Rust and a Phoenix LiveView: JS commands out, server-pushed events in."
 license = "MIT"
+authors = ["Aaron Tavistock", "<aaron-crateio@geekshow.com>"]
+repository = "https://github.com/atavistock/wasm_liveview"
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
