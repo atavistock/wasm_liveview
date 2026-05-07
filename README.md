@@ -14,11 +14,9 @@ Early. I originally built this inside a wasm game project, then needed the same 
 
 ## Install
 
-Until this lands on [crates.io](https://crates.io), pull it from GitHub:
-
 ```toml
 [dependencies]
-wasm_liveview = { git = "https://github.com/atavistock/wasm_liveview" }
+wasm_liveview = "0.3"
 ```
 
 The crate only pulls in `wasm-bindgen` / `js-sys` / `web-sys` on the `wasm32` target. On non-wasm targets every call stubs to `Ok(())` so the command encoders can be unit-tested without a browser.
