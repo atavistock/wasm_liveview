@@ -113,8 +113,10 @@ impl Bridge {
     /// Watches `name` for changes, parsing each new value via [`FromStr`].
     ///
     /// The handler fires once per mutation that leaves the attribute with a
-    /// parseable value. The initial value is *not* delivered -- call
-    /// [`Bridge::read`] once at setup time if you need it.
+    /// parseable value, and additionally once per `phx:page-loading-stop`
+    /// (initial page ready and reconnect after a transport drop) with the
+    /// current attribute value -- so callers don't need to read once at
+    /// setup or re-fetch state after a disconnect.
     ///
     /// Parse failures during mutations are logged via `console.error` and
     /// dropped; the handler only runs on successful parse.

@@ -117,21 +117,23 @@ let remaining: Option<f32> = bridge.read("data-remaining-seconds");
 let guesses: Option<std::collections::HashMap<String, Vec<usize>>>
     = bridge.read_json("data-saved-guesses");
 
-// Watch for updates. Handler fires on each mutation that decodes cleanly.
+// Watch for updates. Handler fires on each mutation that decodes cleanly,
+// plus once on initial page ready and once per reconnect with the current value -
+// so you don't need a separate "read once at startup" or "re-sync after disconnect" step.
 let sub = bridge.watch::<f32, _>("data-remaining-seconds", |secs| {
     web_sys::console::log_1(&format!("{secs} seconds left").into());
 })?;
 sub.forget();
 ```
 
-`phx-update="ignore"` is recommended so LV mutates the bridge element's attributes in place rather than replacing it; if the element is replaced, the `MutationObserver` silently stops firing.
+`phx-update="ignore"` is recommended so LV mutates the bridge element's attributes in place rather than replacing it; if the element is replaced, the `MutationObserver` silently stops firing (the `phx:page-loading-stop` re-delivery still works in that case, since it re-queries by selector).
 
 ## How it works
 
 - **Outbound.** Each command is encoded as `[[op, args]]` JSON and passed to `window.liveSocket.execJS(rootEl, commandJson)`. This is exactly the format LiveView's own `phx-click={JS.push(...)}` attributes use, so the server sees your events indistinguishably from clicks.
 - **Inbound.** Phoenix already broadcasts `push_event/3` payloads as `phx:<event>` window `CustomEvent`s; `subscribe` just adds a typed `addEventListener` and JSON-decodes `event.detail` into your `T`.
-- **Caching.** wasm32 is single-threaded and a page hosts a single `liveSocket`, so `window`, `document`, `liveSocket`, and its `execJS` function are cached in a `thread_local!` for the page's lifetime.
-- **Bridge reads.** `Bridge::new(selector)` stores only the selector; the element is re-queried on each `read` / `read_json` / `watch` call, so a `Bridge` survives LV navigations. `watch` wraps a `MutationObserver` with an attribute filter, so only the watched attribute wakes the callback.
+- **Caching.** wasm32 is single-threaded and a page hosts a single `liveSocket`, so `window`, `document`, `liveSocket`, and its `execJS` function are cached in a `thread_local!` for the page's lifetime. The cache is cleared on every `phx:page-loading-stop` so a reconnect picks up a fresh `liveSocket` / `execJS` rather than holding the pre-disconnect references.
+- **Bridge reads.** `Bridge::new(selector)` stores only the selector; the element is re-queried on each `read` / `read_json` / `watch` call, so a `Bridge` survives LV navigations. `watch` wraps a `MutationObserver` with an attribute filter, so only the watched attribute wakes the callback. Watchers also receive a delivery on every `phx:page-loading-stop` so initial-load and reconnect cases don't need separate handling.
 
 ## Documentation
 
