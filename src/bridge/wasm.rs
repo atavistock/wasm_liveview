@@ -63,23 +63,27 @@ where
         .flatten()
         .ok_or(Error::NoLiveViewRoot)?;
 
-    let on_change: Rc<dyn Fn(String)> = Rc::new(on_change);
+    // `Rc<F>` (not `Rc<dyn Fn(String)>`) keeps F monomorphized so the
+    // call site dispatches statically. The outer reset-hook trait object
+    // still erases below, but we save one vtable hop on every fire.
+    let attr_name: Rc<str> = attr_name.into();
+    let on_change = Rc::new(on_change);
 
-    let attr_name_owned: Rc<str> = attr_name.into();
-    let observed_attr = Rc::clone(&attr_name_owned);
-    let observed_element = element.clone();
-    let observer_on_change = Rc::clone(&on_change);
-
-    let callback = Closure::<dyn Fn(js_sys::Array, web_sys::MutationObserver)>::new(
-        move |_records: js_sys::Array, _observer: web_sys::MutationObserver| {
-            if let Some(raw) = observed_element.get_attribute(&observed_attr) {
-                let trimmed = raw.trim();
-                if !trimmed.is_empty() {
-                    observer_on_change(trimmed.to_string());
+    let callback = {
+        let attr_name = Rc::clone(&attr_name);
+        let on_change = Rc::clone(&on_change);
+        let element = element.clone();
+        Closure::<dyn Fn(js_sys::Array, web_sys::MutationObserver)>::new(
+            move |_records: js_sys::Array, _observer: web_sys::MutationObserver| {
+                if let Some(raw) = element.get_attribute(&attr_name) {
+                    let trimmed = raw.trim();
+                    if !trimmed.is_empty() {
+                        on_change(trimmed.to_string());
+                    }
                 }
-            }
-        },
-    );
+            },
+        )
+    };
 
     let observer = web_sys::MutationObserver::new(callback.as_ref().unchecked_ref())
         .map_err(|error| Error::ExecFailed(format!("MutationObserver::new: {error:?}")))?;
@@ -87,21 +91,24 @@ where
     let init = web_sys::MutationObserverInit::new();
     init.set_attributes(true);
     let filter = js_sys::Array::new();
-    filter.push(&JsValue::from_str(attr_name));
+    filter.push(&JsValue::from_str(&attr_name));
     init.set_attribute_filter(&filter);
 
     observer
         .observe_with_options(&element, &init)
         .map_err(|error| Error::ExecFailed(format!("MutationObserver.observe: {error:?}")))?;
 
-    let selector_owned: Rc<str> = selector.into();
-    let hook_attr = Rc::clone(&attr_name_owned);
-    let hook_on_change = Rc::clone(&on_change);
-    let reset_hook: Rc<dyn Fn()> = Rc::new(move || {
-        if let Some(raw) = read_attribute(&selector_owned, &hook_attr) {
-            hook_on_change(raw);
-        }
-    });
+    // Final use of `attr_name` and `on_change` -- move them in instead of
+    // cloning. The `as Rc<dyn Fn()>` erases at the registry boundary; the
+    // inner call to `on_change(raw)` stays monomorphic.
+    let reset_hook: Rc<dyn Fn()> = {
+        let selector: Rc<str> = selector.into();
+        Rc::new(move || {
+            if let Some(raw) = read_attribute(&selector, &attr_name) {
+                on_change(raw);
+            }
+        })
+    };
     let reset_hook_id = crate::cache::register_reset_hook(reset_hook);
 
     Ok(Inner {

@@ -4,6 +4,13 @@
 //! `window`, with the payload as `event.detail`. [`subscribe`] wraps that
 //! with JSON decoding into a caller-chosen type, so handlers receive a
 //! strongly typed value instead of a raw JS object.
+//!
+//! `subscribe` is for events, not state. Server-pushed events are one-shot
+//! deliveries -- they fire once when the server pushes them and are not
+//! re-delivered on reconnect. If the server's authoritative state lives in
+//! a `data-*` attribute that should re-sync after a transport drop, use
+//! [`crate::Bridge::watch`] instead, which delivers the current attribute
+//! value on every `phx:page-loading-stop`.
 
 use serde::de::DeserializeOwned;
 
