@@ -10,12 +10,10 @@
 //!      data-remaining-seconds="42"></div>
 //! ```
 //!
-//! [`Bridge`] wraps that pattern: one struct that knows the element's
-//! selector, with typed reads ([`Bridge::read`], [`Bridge::read_json`]) and
-//! a typed watcher ([`Bridge::watch`], [`Bridge::watch_json`]) backed by a
-//! `MutationObserver`. When the server re-renders the template, the
-//! attribute changes and registered watchers fire -- no polling, no custom
-//! hook.
+//! [`Bridge`] wraps that pattern: typed reads ([`Bridge::read`],
+//! [`Bridge::read_json`]) and a `MutationObserver`-backed watcher
+//! ([`Bridge::watch`], [`Bridge::watch_json`]). When the server re-renders,
+//! watchers fire -- no polling, no custom hook.
 //!
 //! # Example
 //!
@@ -24,10 +22,8 @@
 //!
 //! let bridge = Bridge::new("#my-bridge");
 //!
-//! // One-shot read; None if the attribute is missing or unparseable.
 //! let remaining: Option<f32> = bridge.read("data-remaining-seconds");
 //!
-//! // Watch for updates.
 //! let sub = bridge.watch::<f32, _>("data-remaining-seconds", |secs| {
 //!     let _ = secs;
 //! })?;
@@ -37,10 +33,10 @@
 //!
 //! # Element lifetime
 //!
-//! The bridge element must be present when [`Bridge::watch`] is called.
-//! `phx-update="ignore"` is recommended so LiveView mutates the
-//! attributes in place rather than replacing the element -- if the element
-//! is replaced, the underlying `MutationObserver` silently stops firing.
+//! The bridge element must exist when [`Bridge::watch`] is called.
+//! `phx-update="ignore"` is recommended so LiveView mutates the attributes
+//! in place -- if the element is replaced, the `MutationObserver` silently
+//! stops firing.
 
 use std::str::FromStr;
 
@@ -54,19 +50,16 @@ mod wasm;
 
 /// Selector-keyed handle to a server-rendered bridge element.
 ///
-/// Cloning is cheap; the struct only stores the selector string. Element
-/// lookup happens on each call, so a `Bridge` is safe to keep across
-/// LiveView navigations.
+/// Cloning is cheap; only the selector string is stored. Element lookup
+/// happens on each call, so a `Bridge` survives LiveView navigations.
 #[derive(Debug, Clone)]
 pub struct Bridge {
     selector: String,
 }
 
 impl Bridge {
-    /// Builds a [`Bridge`] for the element matching `selector`.
-    ///
-    /// `selector` is any CSS selector accepted by `document.querySelector`,
-    /// for example `"#my-bridge"` or `"[data-bridge]"`.
+    /// Builds a [`Bridge`] for the element matching `selector` (any CSS
+    /// selector accepted by `document.querySelector`).
     pub fn new(selector: impl Into<String>) -> Self {
         Self {
             selector: selector.into(),
@@ -78,19 +71,15 @@ impl Bridge {
         &self.selector
     }
 
-    /// Reads an attribute as a raw string.
-    ///
-    /// Returns `None` when the element or attribute is missing, or the
-    /// attribute value is empty after trimming.
+    /// Reads an attribute as a raw string. `None` if the element or
+    /// attribute is missing, or the value is empty after trimming.
     pub fn attr(&self, name: &str) -> Option<String> {
         attr_impl(&self.selector, name)
     }
 
-    /// Reads an attribute and parses it via [`FromStr`].
-    ///
-    /// Returns `None` when the attribute is missing, empty, or fails to
-    /// parse. Parse errors are swallowed silently -- use [`Bridge::attr`]
-    /// if you need to inspect the raw value.
+    /// Reads an attribute and parses it via [`FromStr`]. `None` if missing,
+    /// empty, or unparseable. Parse errors are swallowed silently; use
+    /// [`Bridge::attr`] to inspect the raw value.
     pub fn read<T>(&self, name: &str) -> Option<T>
     where
         T: FromStr,
@@ -98,10 +87,8 @@ impl Bridge {
         self.attr(name).and_then(|raw| raw.parse::<T>().ok())
     }
 
-    /// Reads an attribute and JSON-decodes it via [`serde::Deserialize`].
-    ///
-    /// Returns `None` when the attribute is missing, empty, or fails to
-    /// decode.
+    /// Reads an attribute and JSON-decodes it. `None` if missing, empty, or
+    /// undecodable.
     pub fn read_json<T>(&self, name: &str) -> Option<T>
     where
         T: DeserializeOwned,
@@ -112,23 +99,21 @@ impl Bridge {
 
     /// Watches `name` for changes, parsing each new value via [`FromStr`].
     ///
-    /// The handler fires once per mutation that leaves the attribute with a
-    /// parseable value, and additionally once per `phx:page-loading-stop`
-    /// (initial page ready and reconnect after a transport drop) with the
-    /// current attribute value -- so callers don't need to read once at
-    /// setup or re-fetch state after a disconnect.
+    /// Fires once per mutation that leaves the attribute with a parseable
+    /// value, plus once per `phx:page-loading-stop` (initial page ready and
+    /// reconnect) with the current value -- callers don't need a separate
+    /// initial read or post-disconnect re-sync.
     ///
     /// Parse failures during mutations are logged via `console.error` and
-    /// dropped; the handler only runs on successful parse.
+    /// dropped.
     ///
-    /// The returned [`Subscription`] disconnects the underlying
-    /// `MutationObserver` when dropped. Call [`Subscription::forget`] to
-    /// watch for the rest of the page's lifetime.
+    /// The returned [`Subscription`] disconnects the `MutationObserver`
+    /// when dropped; call [`Subscription::forget`] for the page lifetime.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NoWindow`], [`Error::NoDocument`], or a not-found
-    /// variant if the bridge element cannot be located.
+    /// [`Error::NoWindow`], [`Error::NoDocument`], or not-found if the
+    /// bridge element can't be located.
     pub fn watch<T, F>(&self, name: &str, handler: F) -> Result<Subscription, Error>
     where
         T: FromStr + 'static,
@@ -139,14 +124,7 @@ impl Bridge {
         })
     }
 
-    /// Watches `name` for changes, JSON-decoding each new value.
-    ///
-    /// Same semantics as [`Bridge::watch`], but the attribute is decoded
-    /// with `serde_json` instead of `FromStr`.
-    ///
-    /// # Errors
-    ///
-    /// See [`Bridge::watch`].
+    /// Same as [`Bridge::watch`], but JSON-decodes each new value.
     pub fn watch_json<T, F>(&self, name: &str, handler: F) -> Result<Subscription, Error>
     where
         T: DeserializeOwned + 'static,

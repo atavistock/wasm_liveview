@@ -50,14 +50,10 @@ struct TransitionArgs<'a> {
 /// Runs a CSS transition on an element.
 ///
 /// `classes` is the three-bucket class list (see [`TransitionClasses`]).
-/// `to` picks the target element (LiveView root when `None`). `time_ms` is
-/// the duration in milliseconds, or LiveView's default of `200` when
-/// `None`.
+/// `to` picks the target element (LV root when `None`). `time_ms` is the
+/// duration in milliseconds, defaulting to LiveView's `200`.
 ///
 /// Equivalent to `Phoenix.LiveView.JS.transition(..., to: ..., time: ...)`.
-///
-/// # Errors
-///
 /// See [`Error`].
 ///
 /// # Example

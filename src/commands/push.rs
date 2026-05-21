@@ -13,21 +13,20 @@ struct PushArgs<'a, Payload: Serialize + ?Sized> {
 
 /// Pushes `event` with `payload` to the root LiveView.
 ///
-/// The payload is JSON-serialized and delivered to the server as if a
-/// `phx-click={JS.push("event", value: payload)}` had fired. The server
-/// handles it in `handle_event/3`. This call is fire-and-forget: there is
-/// no reply callback.
+/// The payload is JSON-serialized and reaches the server as if a
+/// `phx-click={JS.push("event", value: payload)}` had fired. Handled in
+/// `handle_event/3`. Fire-and-forget: no reply.
 ///
 /// Equivalent to `Phoenix.LiveView.JS.push(event, value: payload)`.
 ///
 /// # Errors
 ///
-/// Returns [`Error::Serialize`] if `payload` cannot be JSON-encoded, plus
-/// the usual browser-bridge errors. See [`Error`].
+/// [`Error::Serialize`] if `payload` can't be JSON-encoded, plus the usual
+/// browser-bridge errors. See [`Error`].
 ///
 /// # Examples
 ///
-/// Ad-hoc JSON with [`serde_json::json!`]:
+/// Ad-hoc JSON:
 ///
 /// ```no_run
 /// use wasm_liveview as lv;
@@ -39,8 +38,7 @@ struct PushArgs<'a, Payload: Serialize + ?Sized> {
 /// # Ok::<(), lv::Error>(())
 /// ```
 ///
-/// Typed payload via [`derive(Serialize)`](serde::Serialize) -- no `json!`
-/// allocation, field names checked at compile time:
+/// Typed payload (no `json!` allocation, fields checked at compile time):
 ///
 /// ```no_run
 /// use wasm_liveview as lv;
@@ -70,10 +68,9 @@ where
 
 /// Pushes `event` with `payload` to a specific `phx-target`.
 ///
-/// `target` is either a LiveComponent CID (as a string, for example `"1"`)
-/// or a CSS selector such as `"#chat"`. Use this when the handling
-/// `handle_event/3` lives on a [`Phoenix.LiveComponent`] rather than the
-/// root LiveView.
+/// `target` is a LiveComponent CID (as a string, e.g. `"1"`) or a CSS
+/// selector like `"#chat"`. Use when the `handle_event/3` lives on a
+/// [`Phoenix.LiveComponent`] rather than the root LiveView.
 ///
 /// Equivalent to `Phoenix.LiveView.JS.push(event, value: payload, target: ...)`.
 ///

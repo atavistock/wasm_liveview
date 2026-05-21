@@ -8,14 +8,13 @@
 //!
 //! Written for game code that renders in wasm but wants the server to own
 //! state, routing, and persistence.
-//
+//!
 //! # Payload types
 //!
 //! Commands that carry a payload ([`push_event`], [`push_event_to`],
 //! [`dispatch_with`]) accept any `T: serde::Serialize`. Use
-//! [`serde_json::json!`] for ad-hoc payloads, or define a
-//! `#[derive(Serialize)]` struct for typed, compile-time-checked ones. Both
-//! styles are shown on each function's page.
+//! [`serde_json::json!`] for ad-hoc payloads or a `#[derive(Serialize)]`
+//! struct for typed ones.
 //!
 //! # Outbound example
 //!
@@ -26,11 +25,8 @@
 //! struct Submit<'a> { word: &'a str, route: &'a [usize] }
 //!
 //! lv::push_event("submit_word", &Submit { word: "TRY", route: &[0, 1, 2] })?;
-//!
-//! // Client-side routing.
 //! lv::navigate("/room/42", false)?;
 //!
-//! // Run a CSS transition.
 //! lv::transition(
 //!     lv::TransitionClasses {
 //!         transition: &["fade-in"],
@@ -52,28 +48,23 @@
 //! struct Score { value: u32 }
 //!
 //! let sub = lv::subscribe::<Score, _>("score_update", |s| {
-//!     // handler runs once per server push
 //!     let _ = s.value;
 //! })?;
-//!
-//! // Drop the subscription to unsubscribe, or:
 //! sub.forget();
 //! # Ok::<(), lv::Error>(())
 //! ```
 //!
 //! # Target behavior
 //!
-//! On `wasm32-*` targets the crate pulls in `wasm-bindgen`, `js-sys`, and
-//! `web-sys` and calls `window.liveSocket.execJS` for real. On any other
-//! target every outbound function stubs to `Ok(())` and [`subscribe`] returns
-//! an inert handle, so the JSON wire-format encoders can be unit-tested
+//! On `wasm32-*` targets the crate calls `window.liveSocket.execJS` for real.
+//! On other targets every outbound function stubs to `Ok(())` and
+//! [`subscribe`] returns an inert handle, so encoders can be unit-tested
 //! without a browser.
 //!
 //! # Error model
 //!
-//! Every fallible call returns `Result<_, `[`Error`]`>`. See the [`Error`]
-//! enum for the failure modes (missing `window`, uninitialized `liveSocket`,
-//! JSON serialization failures, and JS exceptions thrown by `execJS`).
+//! Every fallible call returns `Result<_, `[`Error`]`>`. See [`Error`] for
+//! the failure modes.
 //!
 //! [`Phoenix.LiveView.JS`]: https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.JS.html
 

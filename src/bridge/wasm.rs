@@ -3,7 +3,7 @@
 
 #![cfg(target_arch = "wasm32")]
 
-use std::rc::Rc;
+use std::rc::Rc as RefCount;
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
@@ -11,9 +11,8 @@ use wasm_bindgen::{JsCast, JsValue};
 use crate::cache::ResetHookId;
 use crate::error::Error;
 
-/// Looks up the element matching `selector` and returns the trimmed value
-/// of its `attr_name` attribute. Returns `None` when the element is missing,
-/// the attribute is missing, or the value trims to empty.
+/// Trimmed value of `attr_name` on the element at `selector`. `None` if
+/// the element or attribute is missing, or the value trims to empty.
 pub(super) fn read_attribute(selector: &str, attr_name: &str) -> Option<String> {
     let document = crate::cache::document().ok()?;
     let element = document.query_selector(selector).ok().flatten()?;
@@ -44,14 +43,10 @@ impl super::super::subscribe::Teardown for Inner {
     }
 }
 
-/// Installs a `MutationObserver` on the bridge element so `on_change` runs
-/// every time `attr_name` is updated. The handler receives the new raw
-/// attribute string (after trimming); if the attribute is removed or trims
-/// empty, the handler is skipped.
-///
-/// Also registers a reset hook so `on_change` is re-invoked with the
-/// current attribute value on every `phx:page-loading-stop` (initial page
-/// ready and reconnect after disconnect).
+/// Installs a `MutationObserver` so `on_change` runs each time `attr_name`
+/// updates (trimmed; empty/removed skips the handler). Also registers a
+/// reset hook that re-invokes `on_change` with the current value on every
+/// `phx:page-loading-stop` (initial ready and reconnect).
 pub(super) fn watch<F>(selector: &str, attr_name: &str, on_change: F) -> Result<Inner, Error>
 where
     F: Fn(String) + 'static,
@@ -63,15 +58,14 @@ where
         .flatten()
         .ok_or(Error::NoLiveViewRoot)?;
 
-    // `Rc<F>` (not `Rc<dyn Fn(String)>`) keeps F monomorphized so the
-    // call site dispatches statically. The outer reset-hook trait object
-    // still erases below, but we save one vtable hop on every fire.
-    let attr_name: Rc<str> = attr_name.into();
-    let on_change = Rc::new(on_change);
+    // `RefCount<F>` (not `RefCount<dyn Fn(String)>`) keeps F monomorphized
+    // for static dispatch on every fire.
+    let attr_name: RefCount<str> = attr_name.into();
+    let on_change = RefCount::new(on_change);
 
     let callback = {
-        let attr_name = Rc::clone(&attr_name);
-        let on_change = Rc::clone(&on_change);
+        let attr_name = RefCount::clone(&attr_name);
+        let on_change = RefCount::clone(&on_change);
         let element = element.clone();
         Closure::<dyn Fn(js_sys::Array, web_sys::MutationObserver)>::new(
             move |_records: js_sys::Array, _observer: web_sys::MutationObserver| {
@@ -98,12 +92,11 @@ where
         .observe_with_options(&element, &init)
         .map_err(|error| Error::ExecFailed(format!("MutationObserver.observe: {error:?}")))?;
 
-    // Final use of `attr_name` and `on_change` -- move them in instead of
-    // cloning. The `as Rc<dyn Fn()>` erases at the registry boundary; the
-    // inner call to `on_change(raw)` stays monomorphic.
-    let reset_hook: Rc<dyn Fn()> = {
-        let selector: Rc<str> = selector.into();
-        Rc::new(move || {
+    // Final use of `attr_name`/`on_change` -- move them in. Erasure happens
+    // at the `dyn Fn()` registry boundary; the inner call stays monomorphic.
+    let reset_hook: RefCount<dyn Fn()> = {
+        let selector: RefCount<str> = selector.into();
+        RefCount::new(move || {
             if let Some(raw) = read_attribute(&selector, &attr_name) {
                 on_change(raw);
             }

@@ -2,33 +2,29 @@
 
 /// Failure modes for every outbound command and for [`crate::subscribe`].
 ///
-/// All variants are returned from [`Result`]s; none are meant to be constructed
-/// by callers. Error messages are stable enough to log but not to pattern-match
-/// on -- match the variant itself.
+/// Error messages are stable enough to log but not to pattern-match on --
+/// match the variant.
 #[derive(Debug)]
 pub enum Error {
-    /// `window` is not available. Typically only seen in non-browser JS
-    /// environments (for example a web worker without DOM access).
+    /// `window` is not available (e.g. a web worker without DOM access).
     NoWindow,
 
-    /// `window.document` is missing. Same conditions as [`Error::NoWindow`].
+    /// `window.document` is missing.
     NoDocument,
 
-    /// `window.liveSocket` has not been set. The page either has not loaded
-    /// `app.js` yet or is not running LiveView at all.
+    /// `window.liveSocket` has not been set. The page hasn't loaded `app.js`
+    /// yet or isn't running LiveView.
     NoLiveSocket,
 
-    /// No element with a `data-phx-session` attribute was found in the DOM.
-    /// Every LiveView root carries this attribute; its absence means no LV
-    /// is currently mounted on the page.
+    /// No `[data-phx-session]` element in the DOM, i.e. no LV is mounted.
     NoLiveViewRoot,
 
-    /// `serde_json` could not serialize (or deserialize) the payload. The
-    /// inner string is the underlying serde message.
+    /// `serde_json` could not (de)serialize a payload. Inner string is the
+    /// serde message.
     Serialize(String),
 
-    /// `liveSocket.execJS` threw a JS exception. The inner string is the
-    /// best-effort message extracted from the JS `Error` object.
+    /// `liveSocket.execJS` threw. Inner string is the best-effort message
+    /// from the JS `Error` object.
     ExecFailed(String),
 }
 

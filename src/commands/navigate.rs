@@ -11,15 +11,11 @@ struct NavArgs<'a> {
 
 /// Client-side navigation to `href`.
 ///
-/// Tears down the current LiveView and mounts the destination, the same way
-/// a `<.link navigate={...}>` click does. Pass `replace = true` to replace
-/// the current history entry instead of pushing a new one.
+/// Tears down the current LiveView and mounts the destination, like a
+/// `<.link navigate={...}>` click. `replace = true` replaces the current
+/// history entry instead of pushing a new one.
 ///
-/// Equivalent to `Phoenix.LiveView.JS.navigate/2`.
-///
-/// # Errors
-///
-/// See [`Error`].
+/// Equivalent to `Phoenix.LiveView.JS.navigate/2`. See [`Error`].
 ///
 /// # Example
 ///
@@ -34,14 +30,10 @@ pub fn navigate(href: &str, replace: bool) -> Result<(), Error> {
 
 /// Client-side patch to `href` within the current LiveView.
 ///
-/// Stays in the current LV (does not remount) and re-runs `handle_params/3`
-/// with the new URL. Pass `replace = true` to replace the history entry.
+/// Stays in the current LV (no remount) and re-runs `handle_params/3` with
+/// the new URL. `replace = true` replaces the history entry.
 ///
-/// Equivalent to `Phoenix.LiveView.JS.patch/2`.
-///
-/// # Errors
-///
-/// See [`Error`].
+/// Equivalent to `Phoenix.LiveView.JS.patch/2`. See [`Error`].
 ///
 /// # Example
 ///

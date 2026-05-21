@@ -10,7 +10,7 @@ Written for game code that renders in wasm but wants the server to own authentic
 
 ## Status
 
-Early. I originally built this inside a wasm game project, then needed the same bridge in a second one, so I extracted it into a shared crate. Both projects use it today, and the docs were cleaned up ahead of a first release. The outbound side wraps the common `JS` commands. The inbound side covers server-pushed events via `window` `phx:<event>` listeners. Not yet implemented: client-to-server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
+Early. Extracted from two wasm game projects that both use it today. The outbound side wraps the common `JS` commands; the inbound side covers server-pushed events via `window` `phx:<event>` listeners. Not yet implemented: client-to-server `pushEvent` with a reply callback, which needs a LiveView hook on the JS side.
 
 ## Install
 
@@ -19,11 +19,11 @@ Early. I originally built this inside a wasm game project, then needed the same 
 wasm_liveview = "0.3"
 ```
 
-The crate only pulls in `wasm-bindgen` / `js-sys` / `web-sys` on the `wasm32` target. On non-wasm targets every call stubs to `Ok(())` so the command encoders can be unit-tested without a browser.
+`wasm-bindgen` / `js-sys` / `web-sys` are only pulled in on `wasm32`. On other targets every call stubs to `Ok(())` so encoders can be unit-tested without a browser.
 
 ## Sending commands to LiveView
 
-Every outbound function is a thin wrapper around one `Phoenix.LiveView.JS` command, ultimately dispatched via `window.liveSocket.execJS(rootEl, ...)`.
+Every outbound function is a thin wrapper around one `Phoenix.LiveView.JS` command, dispatched via `window.liveSocket.execJS(rootEl, ...)`.
 
 ```rust
 use wasm_liveview as lv;
@@ -71,7 +71,7 @@ lv::pop_focus()?;
 lv::exec_attr("data-show", Some("#modal"))?;
 ```
 
-All outbound calls are **fire-and-forget**. `execJS` returns no reply, so if you need the server's response, use the hook-backed channel (not yet implemented).
+All outbound calls are **fire-and-forget**. `execJS` returns no reply; for server responses, use the hook-backed channel (not yet implemented).
 
 ## Receiving server-pushed events
 
@@ -87,11 +87,11 @@ let sub = lv::subscribe::<Score, _>("score_update", |s| {
     web_sys::console::log_1(&format!("score is now {}", s.value).into());
 })?;
 
-// `sub` removes the listener when dropped. To listen for the lifetime of the page:
+// `sub` removes the listener when dropped. To listen for the page lifetime:
 sub.forget();
 ```
 
-Deserialization failures are logged via `console.error` and the handler is skipped. Malformed payloads will never panic your wasm module.
+Deserialization failures are logged via `console.error` and skipped - malformed payloads never panic the wasm module.
 
 ## Reading and watching server state
 
@@ -109,42 +109,42 @@ use wasm_liveview::Bridge;
 
 let bridge = Bridge::new("#my-bridge");
 
-// One-shot reads. None if the attribute is missing, empty, or unparseable.
+// One-shot reads. None if missing, empty, or unparseable.
 let status: Option<String> = bridge.attr("data-round-status");
 let remaining: Option<f32> = bridge.read("data-remaining-seconds");
 let guesses: Option<std::collections::HashMap<String, Vec<usize>>>
     = bridge.read_json("data-saved-guesses");
 
-// Watch for updates. Handler fires on each mutation that decodes cleanly,
-// plus once on initial page ready and once per reconnect with the current value -
-// so you don't need a separate "read once at startup" or "re-sync after disconnect" step.
+// Watch for updates. Fires on each mutation that decodes cleanly, plus
+// once on initial page ready and once per reconnect with the current value -
+// no separate "read once" or "re-sync after disconnect" step needed.
 let sub = bridge.watch::<f32, _>("data-remaining-seconds", |secs| {
     web_sys::console::log_1(&format!("{secs} seconds left").into());
 })?;
 sub.forget();
 ```
 
-`phx-update="ignore"` is recommended so LV mutates the bridge element's attributes in place rather than replacing it; if the element is replaced, the `MutationObserver` silently stops firing (the `phx:page-loading-stop` re-delivery still works in that case, since it re-queries by selector).
+`phx-update="ignore"` is recommended so LV mutates the element's attributes in place; if the element is replaced, the `MutationObserver` silently stops firing (the `phx:page-loading-stop` re-delivery still works, since it re-queries by selector).
 
 ## How it works
 
-- **Outbound.** Each command is encoded as `[[op, args]]` JSON and passed to `window.liveSocket.execJS(rootEl, commandJson)`. This is exactly the format LiveView's own `phx-click={JS.push(...)}` attributes use, so the server sees your events indistinguishably from clicks.
-- **Inbound.** Phoenix already broadcasts `push_event/3` payloads as `phx:<event>` window `CustomEvent`s; `subscribe` just adds a typed `addEventListener` and JSON-decodes `event.detail` into your `T`.
-- **Caching.** wasm32 is single-threaded and a page hosts a single `liveSocket`, so `window`, `document`, `liveSocket`, and its `execJS` function are cached in a `thread_local!` for the page's lifetime. The cache is cleared on every `phx:page-loading-stop` so a reconnect picks up a fresh `liveSocket` / `execJS` rather than holding the pre-disconnect references.
-- **Bridge reads.** `Bridge::new(selector)` stores only the selector; the element is re-queried on each `read` / `read_json` / `watch` call, so a `Bridge` survives LV navigations. `watch` wraps a `MutationObserver` with an attribute filter, so only the watched attribute wakes the callback. Watchers also receive a delivery on every `phx:page-loading-stop` so initial-load and reconnect cases don't need separate handling.
+- **Outbound.** Each command is encoded as `[[op, args]]` JSON and passed to `window.liveSocket.execJS(rootEl, commandJson)` - the same format LiveView's own `phx-click={JS.push(...)}` attributes use, so the server sees your events indistinguishably from clicks.
+- **Inbound.** Phoenix broadcasts `push_event/3` payloads as `phx:<event>` window `CustomEvent`s; `subscribe` adds a typed `addEventListener` and JSON-decodes `event.detail` into your `T`.
+- **Caching.** wasm32 is single-threaded and a page hosts a single `liveSocket`, so `window`, `document`, `liveSocket`, and `execJS` are cached in a `thread_local!`. The cache is cleared on every `phx:page-loading-stop` so reconnects pick up the fresh `liveSocket` rather than the pre-disconnect reference.
+- **Bridge reads.** `Bridge::new(selector)` stores only the selector; the element is re-queried per call, so a `Bridge` survives LV navigations. `watch` wraps a `MutationObserver` with an attribute filter, and re-fires on every `phx:page-loading-stop` so initial-load and reconnect cases don't need separate handling.
 
 ## Documentation
 
-Every public item has rustdoc. To build and read the docs locally:
+Every public item has rustdoc. Build locally:
 
 ```sh
 cargo doc --no-deps --open
 ```
 
-To mirror what docs.rs renders (feature-gate badges, etc.), build with the `docsrs` cfg on nightly:
+To mirror docs.rs (feature-gate badges, etc.), build with the `docsrs` cfg on nightly:
 
 ```sh
 RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --no-deps --open
 ```
 
-Once published, docs.rs will build the same configuration automatically - the `[package.metadata.docs.rs]` block in `Cargo.toml` pins the target to `wasm32-unknown-unknown` and enables `--cfg docsrs`.
+Once published, docs.rs builds the same configuration automatically - the `[package.metadata.docs.rs]` block in `Cargo.toml` pins the target to `wasm32-unknown-unknown` and enables `--cfg docsrs`.

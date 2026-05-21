@@ -1,10 +1,9 @@
-//! wasm32-only listener plumbing: owns the `Closure`, registers and
-//! unregisters it on `window`, and JSON-decodes `event.detail` into the
-//! caller's `Event` type.
+//! wasm32-only listener plumbing: owns the `Closure`, (un)registers it on
+//! `window`, and JSON-decodes `event.detail` into the caller's `Event`.
 
 #![cfg(target_arch = "wasm32")]
 
-use std::rc::Rc;
+use std::rc::Rc as RefCount;
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::closure::Closure;
@@ -13,7 +12,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use crate::error::Error;
 
 pub(super) struct Inner {
-    event_name: Rc<str>,
+    event_name: RefCount<str>,
     callback: Closure<dyn Fn(web_sys::CustomEvent)>,
 }
 
@@ -38,8 +37,8 @@ where
     Handler: Fn(Event) + 'static,
 {
     let window = crate::cache::window()?;
-    let event_name: Rc<str> = format!("phx:{event}").into();
-    let logged_name = Rc::clone(&event_name);
+    let event_name: RefCount<str> = format!("phx:{event}").into();
+    let logged_name = RefCount::clone(&event_name);
 
     let callback = Closure::<dyn Fn(web_sys::CustomEvent)>::new(
         move |custom_event: web_sys::CustomEvent| {

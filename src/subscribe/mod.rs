@@ -1,16 +1,14 @@
 //! Typed `addEventListener` for Phoenix `push_event/3` payloads.
 //!
-//! `Phoenix.LiveView.push_event/3` dispatches `phx:<event>` `CustomEvent`s on
-//! `window`, with the payload as `event.detail`. [`subscribe`] wraps that
-//! with JSON decoding into a caller-chosen type, so handlers receive a
-//! strongly typed value instead of a raw JS object.
+//! `Phoenix.LiveView.push_event/3` dispatches `phx:<event>` `CustomEvent`s
+//! on `window` with the payload as `event.detail`. [`subscribe`] wraps that
+//! with JSON decoding into a caller-chosen type.
 //!
-//! `subscribe` is for events, not state. Server-pushed events are one-shot
-//! deliveries -- they fire once when the server pushes them and are not
-//! re-delivered on reconnect. If the server's authoritative state lives in
-//! a `data-*` attribute that should re-sync after a transport drop, use
-//! [`crate::Bridge::watch`] instead, which delivers the current attribute
-//! value on every `phx:page-loading-stop`.
+//! `subscribe` is for events, not state. Server-pushed events fire once and
+//! are not re-delivered on reconnect. For authoritative state that lives in
+//! a `data-*` attribute and should re-sync after a transport drop, use
+//! [`crate::Bridge::watch`] -- it delivers the current attribute value on
+//! every `phx:page-loading-stop`.
 
 use serde::de::DeserializeOwned;
 
@@ -23,19 +21,17 @@ mod wasm;
 /// The `phx:` prefix is added automatically, so
 /// `subscribe("score_update", ...)` listens for `phx:score_update`.
 ///
-/// `handler` is invoked once per matching event with `event.detail`
-/// deserialized into `Event`. Deserialization failures are logged via
-/// `console.error` and dropped: the handler only runs on successful decode,
-/// and malformed payloads will never panic your wasm module.
+/// `handler` is invoked once per event with `event.detail` deserialized
+/// into `Event`. Deserialization failures are logged via `console.error`
+/// and dropped -- malformed payloads never panic the wasm module.
 ///
-/// The returned [`Subscription`] removes the listener when dropped. Call
-/// [`Subscription::forget`] to let the listener live for the remainder of
-/// the page's lifetime.
+/// The returned [`Subscription`] removes the listener when dropped; call
+/// [`Subscription::forget`] for the page lifetime.
 ///
 /// # Errors
 ///
-/// Returns [`Error::NoWindow`] on non-browser environments. Never returns an
-/// error on non-wasm targets (the call stubs out).
+/// [`Error::NoWindow`] on non-browser environments. Never errors on
+/// non-wasm targets (stubs out).
 ///
 /// # Example
 ///
@@ -62,17 +58,15 @@ where
 /// RAII handle for a listener registered via [`subscribe`] or
 /// [`crate::Bridge::watch`].
 ///
-/// Dropping the handle removes the underlying listener. Call
-/// [`Subscription::forget`] to keep the listener alive for the rest of the
-/// page's lifetime (the usual choice for permanent subscriptions set up at
-/// startup).
+/// Dropping removes the listener; [`Subscription::forget`] keeps it alive
+/// for the page lifetime (the usual choice for startup subscriptions).
 pub struct Subscription {
     #[cfg(target_arch = "wasm32")]
     inner: Option<Box<dyn Teardown>>,
 }
 
-/// Internal trait implemented by each listener kind (event-listener,
-/// MutationObserver, etc.) so [`Subscription`] can own them uniformly.
+/// Internal trait so [`Subscription`] can uniformly own each listener kind
+/// (event-listener, MutationObserver, ...).
 #[cfg(target_arch = "wasm32")]
 pub(crate) trait Teardown {
     fn remove(self: Box<Self>);
@@ -80,12 +74,8 @@ pub(crate) trait Teardown {
 }
 
 impl Subscription {
-    /// Consumes the handle, leaking the listener so it lives for the rest
-    /// of the page's lifetime.
-    ///
-    /// After calling `forget`, the listener can no longer be removed. Use
-    /// this for subscriptions that should persist across LiveView
-    /// navigations and live as long as the page is loaded.
+    /// Leaks the listener so it lives for the rest of the page's lifetime.
+    /// After `forget`, the listener can no longer be removed.
     pub fn forget(self) {
         #[cfg(target_arch = "wasm32")]
         {

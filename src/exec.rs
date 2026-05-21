@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::error::Error;
 
 /// Encodes a single `Phoenix.LiveView.JS` command as the `[[op, args]]`
-/// JSON string that `liveSocket.execJS` expects.
+/// JSON string `liveSocket.execJS` expects.
 pub fn encode_command<Args>(op: &str, args: &Args) -> Result<String, Error>
 where
     Args: Serialize + ?Sized,
@@ -22,8 +22,8 @@ where
     exec_js(&encode_command(op, args)?)
 }
 
-/// Zero-sized stand-in for commands that take no options. Serializes to
-/// `{}`, which is what LiveView expects for ops like `pop_focus`.
+/// Zero-sized stand-in for ops that take no options (e.g. `pop_focus`).
+/// Serializes to `{}`.
 #[derive(Serialize)]
 pub struct NoArgs {}
 
@@ -44,8 +44,7 @@ fn exec_js(_command: &str) -> Result<(), Error> {
     Ok(())
 }
 
-/// Best-effort conversion of a JS exception value into a readable message:
-/// unwraps `Error.message` or a direct string, falling back to Debug.
+/// Unwraps `Error.message` or a direct string, falling back to Debug.
 #[cfg(target_arch = "wasm32")]
 fn js_error_message(error: &wasm_bindgen::JsValue) -> String {
     use wasm_bindgen::JsCast;

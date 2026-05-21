@@ -11,11 +11,7 @@ struct SelectorArgs<'a> {
 
 /// Focuses the element at `to`, or the LiveView root when `None`.
 ///
-/// Equivalent to `Phoenix.LiveView.JS.focus(to: ...)`.
-///
-/// # Errors
-///
-/// See [`Error`] for browser-bridge failure modes.
+/// Equivalent to `Phoenix.LiveView.JS.focus(to: ...)`. See [`Error`].
 ///
 /// # Example
 ///
@@ -28,38 +24,25 @@ pub fn focus(to: Option<&str>) -> Result<(), Error> {
     exec("focus", &SelectorArgs { to })
 }
 
-/// Focuses the first focusable descendant of `to`.
+/// Focuses the first focusable descendant of `to` (LV root when `None`).
 ///
-/// When `to` is `None` the search starts from the LiveView root. Equivalent
-/// to `Phoenix.LiveView.JS.focus_first(to: ...)`.
-///
-/// # Errors
-///
-/// See [`Error`].
+/// Equivalent to `Phoenix.LiveView.JS.focus_first(to: ...)`. See [`Error`].
 pub fn focus_first(to: Option<&str>) -> Result<(), Error> {
     exec("focus_first", &SelectorArgs { to })
 }
 
-/// Pushes the current focus onto LiveView's focus stack.
+/// Pushes the current focus onto LiveView's focus stack. Pair with
+/// [`pop_focus`] to restore focus later (e.g. after closing a modal).
 ///
-/// Pair with [`pop_focus`] to restore focus later (for example after closing
-/// a modal). Equivalent to `Phoenix.LiveView.JS.push_focus(to: ...)`.
-///
-/// # Errors
-///
-/// See [`Error`].
+/// Equivalent to `Phoenix.LiveView.JS.push_focus(to: ...)`. See [`Error`].
 pub fn push_focus(to: Option<&str>) -> Result<(), Error> {
     exec("push_focus", &SelectorArgs { to })
 }
 
-/// Pops the previously pushed focus off LiveView's focus stack.
+/// Pops the previously pushed focus off LiveView's focus stack. No-op if
+/// the stack is empty.
 ///
-/// No-op if the stack is empty. Equivalent to
-/// `Phoenix.LiveView.JS.pop_focus/0`.
-///
-/// # Errors
-///
-/// See [`Error`].
+/// Equivalent to `Phoenix.LiveView.JS.pop_focus/0`. See [`Error`].
 pub fn pop_focus() -> Result<(), Error> {
     exec("pop_focus", &NoArgs {})
 }

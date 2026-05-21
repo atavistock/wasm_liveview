@@ -15,17 +15,14 @@ struct DispatchArgs<'a, Detail: Serialize + ?Sized> {
 
 /// Dispatches a DOM `CustomEvent` named `event` on an element.
 ///
-/// When `to` is `Some(selector)`, the event is dispatched on the first
-/// element matching that CSS selector. When `to` is `None`, it is dispatched
-/// on the LiveView root element. The event always bubbles.
+/// `to` picks the target element via CSS selector (LiveView root when
+/// `None`). The event always bubbles.
 ///
 /// Equivalent to `Phoenix.LiveView.JS.dispatch(event, to: ...)`.
 ///
 /// # Errors
 ///
-/// Returns [`Error::NoLiveSocket`], [`Error::NoLiveViewRoot`], or
-/// [`Error::ExecFailed`] if the browser bridge is not ready or `execJS`
-/// throws. See [`Error`] for the full list.
+/// See [`Error`].
 ///
 /// # Example
 ///
@@ -51,15 +48,13 @@ pub fn dispatch(event: &str, to: Option<&str>) -> Result<(), Error> {
     )
 }
 
-/// Like [`dispatch`], but attaches a serializable `detail` payload.
-///
-/// `detail` is serialized with `serde_json` and becomes `event.detail` on
-/// the `CustomEvent` seen by listeners.
+/// Like [`dispatch`], but attaches a serializable `detail` payload that
+/// becomes `event.detail` on the dispatched `CustomEvent`.
 ///
 /// # Errors
 ///
-/// Returns [`Error::Serialize`] if `detail` cannot be JSON-encoded. Also
-/// returns the same browser-bridge errors as [`dispatch`].
+/// [`Error::Serialize`] if `detail` can't be JSON-encoded; otherwise as
+/// [`dispatch`].
 ///
 /// # Examples
 ///
@@ -76,7 +71,7 @@ pub fn dispatch(event: &str, to: Option<&str>) -> Result<(), Error> {
 /// # Ok::<(), lv::Error>(())
 /// ```
 ///
-/// Typed payload via [`derive(Serialize)`](serde::Serialize):
+/// Typed payload:
 ///
 /// ```no_run
 /// use wasm_liveview as lv;
